@@ -421,7 +421,7 @@ function AddProductModal({ onClose, onSave }) {
   const [category, setCategory] = useState('')
   const [coverImage, setCoverImage] = useState('')
   const [images, setImages] = useState([])
-  const [tiers, setTiers] = useState([{ min_qty: 1, max_qty: 49, price_per_unit: '', cost_per_unit: '' }])
+  const [tiers, setTiers] = useState([{ min_qty: 1, max_qty: 49, price_per_unit: '', cost_per_unit: '', exact: false }])
   const [shippingAir, setShippingAir] = useState('')
   const [shippingAirExpress, setShippingAirExpress] = useState('')
   const [shippingSea, setShippingSea] = useState('')
@@ -429,12 +429,18 @@ function AddProductModal({ onClose, onSave }) {
 
   const addTier = () => {
     const lastMax = tiers.length > 0 ? (tiers[tiers.length - 1].max_qty || 0) + 1 : 1
-    setTiers([...tiers, { min_qty: lastMax, max_qty: null, price_per_unit: '', cost_per_unit: '' }])
+    setTiers([...tiers, { min_qty: lastMax, max_qty: null, price_per_unit: '', cost_per_unit: '', exact: false }])
   }
 
   const updateTier = (i, field, val) => {
     const next = [...tiers]
-    next[i] = { ...next[i], [field]: (field === 'price_per_unit' || field === 'cost_per_unit') ? val : (val === '' ? null : parseInt(val)) }
+    if (field === 'exact') {
+      next[i] = { ...next[i], exact: val }
+      if (val) next[i].max_qty = next[i].min_qty
+    } else {
+      next[i] = { ...next[i], [field]: (field === 'price_per_unit' || field === 'cost_per_unit') ? val : (val === '' ? null : parseInt(val)) }
+      if (next[i].exact && field === 'min_qty') next[i].max_qty = next[i].min_qty
+    }
     setTiers(next)
   }
 
@@ -564,17 +570,34 @@ function AddProductModal({ onClose, onSave }) {
                 display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8,
                 padding: 12, background: '#FAFAFA', borderRadius: 8
               }}>
-                <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: 11, color: '#555', fontWeight: 600 }}>Min Qty</label>
-                  <input style={{ ...s.input, padding: '8px 10px' }} type="number"
-                    value={tier.min_qty} onChange={e => updateTier(i, 'min_qty', e.target.value)} />
+                <div style={{ width: 80 }}>
+                  <label style={{ fontSize: 11, color: '#555', fontWeight: 600 }}>Type</label>
+                  <button onClick={() => updateTier(i, 'exact', !tier.exact)} style={{
+                    ...s.btnSecondary, ...s.btnSmall, width: '100%', justifyContent: 'center',
+                    marginTop: 4, fontSize: 11, padding: '7px 6px'
+                  }}>{tier.exact ? 'Exact' : 'Range'}</button>
                 </div>
-                <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: 11, color: '#555', fontWeight: 600 }}>Max Qty</label>
-                  <input style={{ ...s.input, padding: '8px 10px' }} type="number"
-                    value={tier.max_qty || ''} onChange={e => updateTier(i, 'max_qty', e.target.value)}
-                    placeholder="No limit" />
-                </div>
+                {tier.exact ? (
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: 11, color: '#555', fontWeight: 600 }}>Quantity</label>
+                    <input style={{ ...s.input, padding: '8px 10px' }} type="number"
+                      value={tier.min_qty} onChange={e => updateTier(i, 'min_qty', e.target.value)} />
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: 11, color: '#555', fontWeight: 600 }}>Min Qty</label>
+                      <input style={{ ...s.input, padding: '8px 10px' }} type="number"
+                        value={tier.min_qty} onChange={e => updateTier(i, 'min_qty', e.target.value)} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: 11, color: '#555', fontWeight: 600 }}>Max Qty</label>
+                      <input style={{ ...s.input, padding: '8px 10px' }} type="number"
+                        value={tier.max_qty || ''} onChange={e => updateTier(i, 'max_qty', e.target.value)}
+                        placeholder="No limit" />
+                    </div>
+                  </>
+                )}
                 <div style={{ flex: 1 }}>
                   <label style={{ fontSize: 11, color: '#555', fontWeight: 600 }}>Your Cost / Unit</label>
                   <input style={{ ...s.input, padding: '8px 10px' }} type="number" step="0.01"
@@ -709,7 +732,7 @@ function AdminProductEdit() {
 
   const addTier = () => {
     const lastMax = tiers.length > 0 ? (tiers[tiers.length - 1].max_qty || 0) + 1 : 1
-    setTiers([...tiers, { min_qty: lastMax, max_qty: null, price_per_unit: '', cost_per_unit: '' }])
+    setTiers([...tiers, { min_qty: lastMax, max_qty: null, price_per_unit: '', cost_per_unit: '', exact: false }])
   }
 
   if (!product) return <p style={{ color: '#555' }}>Loading...</p>
@@ -798,6 +821,7 @@ function AdminProductEdit() {
         </div>
 
         {tiers.map((tier, i) => {
+          const isExact = tier.exact || (tier.min_qty && tier.max_qty && tier.min_qty === tier.max_qty)
           const margin = (tier.price_per_unit && tier.cost_per_unit)
             ? ((parseFloat(tier.price_per_unit) - parseFloat(tier.cost_per_unit)) / parseFloat(tier.price_per_unit) * 100).toFixed(0)
             : null
@@ -806,20 +830,46 @@ function AdminProductEdit() {
               display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8,
               padding: 12, background: '#FAFAFA', borderRadius: 8
             }}>
-              <div style={{ flex: 1 }}>
-                <label style={{ fontSize: 11, color: '#555', fontWeight: 600 }}>Min Qty</label>
-                <input style={{ ...s.input, padding: '8px 10px' }} type="number"
-                  value={tier.min_qty} onChange={e => {
-                    const next = [...tiers]; next[i] = { ...next[i], min_qty: parseInt(e.target.value) || 0 }; setTiers(next)
-                  }} />
+              <div style={{ width: 80 }}>
+                <label style={{ fontSize: 11, color: '#555', fontWeight: 600 }}>Type</label>
+                <button onClick={() => {
+                  const next = [...tiers]
+                  const newExact = !isExact
+                  next[i] = { ...next[i], exact: newExact }
+                  if (newExact) next[i].max_qty = next[i].min_qty
+                  setTiers(next)
+                }} style={{
+                  ...s.btnSecondary, ...s.btnSmall, width: '100%', justifyContent: 'center',
+                  marginTop: 4, fontSize: 11, padding: '7px 6px'
+                }}>{isExact ? 'Exact' : 'Range'}</button>
               </div>
-              <div style={{ flex: 1 }}>
-                <label style={{ fontSize: 11, color: '#555', fontWeight: 600 }}>Max Qty</label>
-                <input style={{ ...s.input, padding: '8px 10px' }} type="number"
-                  value={tier.max_qty || ''} onChange={e => {
-                    const next = [...tiers]; next[i] = { ...next[i], max_qty: e.target.value === '' ? null : parseInt(e.target.value) }; setTiers(next)
-                  }} placeholder="No limit" />
-              </div>
+              {isExact ? (
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 11, color: '#555', fontWeight: 600 }}>Quantity</label>
+                  <input style={{ ...s.input, padding: '8px 10px' }} type="number"
+                    value={tier.min_qty} onChange={e => {
+                      const val = parseInt(e.target.value) || 0
+                      const next = [...tiers]; next[i] = { ...next[i], min_qty: val, max_qty: val }; setTiers(next)
+                    }} />
+                </div>
+              ) : (
+                <>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: 11, color: '#555', fontWeight: 600 }}>Min Qty</label>
+                    <input style={{ ...s.input, padding: '8px 10px' }} type="number"
+                      value={tier.min_qty} onChange={e => {
+                        const next = [...tiers]; next[i] = { ...next[i], min_qty: parseInt(e.target.value) || 0 }; setTiers(next)
+                      }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: 11, color: '#555', fontWeight: 600 }}>Max Qty</label>
+                    <input style={{ ...s.input, padding: '8px 10px' }} type="number"
+                      value={tier.max_qty || ''} onChange={e => {
+                        const next = [...tiers]; next[i] = { ...next[i], max_qty: e.target.value === '' ? null : parseInt(e.target.value) }; setTiers(next)
+                      }} placeholder="No limit" />
+                  </div>
+                </>
+              )}
               <div style={{ flex: 1 }}>
                 <label style={{ fontSize: 11, color: '#555', fontWeight: 600 }}>Your Cost / Unit</label>
                 <input style={{ ...s.input, padding: '8px 10px' }} type="number" step="0.01"
@@ -1502,7 +1552,7 @@ function ProductDetailModal({ product, onClose, onAdd }) {
                     fontSize: 14, fontWeight: currentTier === tier ? 600 : 400,
                     transition: 'all 0.15s'
                   }}>
-                    <span>{tier.min_qty}{tier.max_qty ? `–${tier.max_qty}` : '+'} units</span>
+                    <span>{tier.min_qty === tier.max_qty ? `${tier.min_qty}` : `${tier.min_qty}${tier.max_qty ? `–${tier.max_qty}` : '+'}`} units</span>
                     <span style={{ fontWeight: 700 }}>{formatMoney(tier.price_per_unit)} / unit</span>
                   </div>
                 ))}
