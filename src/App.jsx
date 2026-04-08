@@ -1418,10 +1418,12 @@ function Storefront() {
                       <p style={{ fontSize: 11, color: '#555' }}>
                         {formatMoney(item.estimated_price)} ea
                       </p>
-                      {item.shipping_method && (
+                      {item.shipping_method ? (
                         <p style={{ fontSize: 10, color: '#A3A3A3' }}>
                           + {formatMoney(item.shipping_cost)} {item.shipping_method}
                         </p>
+                      ) : (
+                        <p style={{ fontSize: 10, color: '#16A34A' }}>Free Shipping</p>
                       )}
                     </div>
                     <button onClick={() => removeFromCart(idx)}
@@ -1578,9 +1580,9 @@ function ProductDetailModal({ product, onClose, onAdd }) {
           </div>
 
           {/* Shipping Method */}
-          {shippingOptions.length > 0 && (
-            <div style={{ marginBottom: 20 }}>
-              <label style={s.label}>Shipping Method</label>
+          <div style={{ marginBottom: 20 }}>
+            <label style={s.label}>Shipping</label>
+            {shippingOptions.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {shippingOptions.map(opt => {
                   const Icon = opt.icon
@@ -1602,8 +1604,16 @@ function ProductDetailModal({ product, onClose, onAdd }) {
                   )
                 })}
               </div>
-            </div>
-          )}
+            ) : (
+              <div style={{
+                padding: '12px 16px', borderRadius: 8, background: '#DCFCE7',
+                display: 'flex', alignItems: 'center', gap: 10
+              }}>
+                <Check size={18} style={{ color: '#16A34A' }} />
+                <span style={{ fontSize: 14, fontWeight: 600, color: '#16A34A' }}>Free Shipping</span>
+              </div>
+            )}
+          </div>
 
           {/* Live Price */}
           {unitPrice > 0 && (() => {
@@ -1618,12 +1628,14 @@ function ProductDetailModal({ product, onClose, onAdd }) {
                   <span style={{ fontSize: 13, color: '#555' }}>Product: {formatMoney(unitPrice)} x {qty}</span>
                   <span style={{ fontSize: 14, fontWeight: 600 }}>{formatMoney(unitPrice * qty)}</span>
                 </div>
-                {shippingCost > 0 && (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <span style={{ fontSize: 13, color: '#555' }}>Shipping: {formatMoney(shippingCost)} x {qty}</span>
-                    <span style={{ fontSize: 14, fontWeight: 600 }}>{formatMoney(shippingCost * qty)}</span>
-                  </div>
-                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ fontSize: 13, color: '#555' }}>Shipping</span>
+                  {shippingCost > 0 ? (
+                    <span style={{ fontSize: 14, fontWeight: 600 }}>{formatMoney(shippingCost)} x {qty} = {formatMoney(shippingCost * qty)}</span>
+                  ) : (
+                    <span style={{ fontSize: 14, fontWeight: 600, color: '#16A34A' }}>Free</span>
+                  )}
+                </div>
                 <div style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                   borderTop: '1px solid #D4D4D4', paddingTop: 8, marginTop: 8
@@ -1643,7 +1655,14 @@ function ProductDetailModal({ product, onClose, onAdd }) {
               placeholder="Colors, sizes, special instructions..." />
           </div>
 
-          <button style={{ ...s.btnPrimary, width: '100%', justifyContent: 'center', padding: '14px 20px', fontSize: 15 }}
+          {shippingOptions.length > 0 && !shippingMethod && (
+            <p style={{ fontSize: 12, color: '#DC2626', marginBottom: 8 }}>Please select a shipping method</p>
+          )}
+          <button style={{
+            ...s.btnPrimary, width: '100%', justifyContent: 'center', padding: '14px 20px', fontSize: 15,
+            opacity: (shippingOptions.length > 0 && !shippingMethod) ? 0.5 : 1
+          }}
+            disabled={shippingOptions.length > 0 && !shippingMethod}
             onClick={() => onAdd(product, qty, notes, shippingMethod)}>
             <ShoppingBag size={18} /> Add to Quote
           </button>
@@ -1764,11 +1783,9 @@ function CheckoutModal({ cart, total, onClose, onSuccess }) {
                     <span>{item.product_name} x {item.quantity}</span>
                     <span style={{ fontWeight: 600 }}>{formatMoney((parseFloat(item.estimated_price || 0) + parseFloat(item.shipping_cost || 0)) * item.quantity)}</span>
                   </div>
-                  {item.shipping_method && (
-                    <p style={{ fontSize: 11, color: '#555', marginTop: 2 }}>
-                      Shipping: {item.shipping_method} (+{formatMoney(item.shipping_cost)}/unit)
-                    </p>
-                  )}
+                  <p style={{ fontSize: 11, color: item.shipping_method ? '#555' : '#16A34A', marginTop: 2 }}>
+                    {item.shipping_method ? `Shipping: ${item.shipping_method} (+${formatMoney(item.shipping_cost)}/unit)` : 'Free Shipping'}
+                  </p>
                 </div>
               ))}
               <div style={{
