@@ -6,7 +6,8 @@ import {
   Package, Plus, Trash2, Upload, Image, X, ChevronLeft, ShoppingBag,
   Eye, EyeOff, Edit3, Save, Check, AlertCircle, Search, Filter,
   FileText, DollarSign, Clock, CheckCircle, Send, ArrowRight,
-  Menu, LogOut, Grid, List, ChevronRight, Star, Minus
+  Menu, LogOut, Grid, List, ChevronRight, Star, Minus, Plane, Ship, Zap,
+  TrendingUp
 } from 'lucide-react'
 
 // ─── STYLES ─────────────────────────────────────────────────────────────────
@@ -420,17 +421,20 @@ function AddProductModal({ onClose, onSave }) {
   const [category, setCategory] = useState('')
   const [coverImage, setCoverImage] = useState('')
   const [images, setImages] = useState([])
-  const [tiers, setTiers] = useState([{ min_qty: 1, max_qty: 49, price_per_unit: '' }])
+  const [tiers, setTiers] = useState([{ min_qty: 1, max_qty: 49, price_per_unit: '', cost_per_unit: '' }])
+  const [shippingAir, setShippingAir] = useState('')
+  const [shippingAirExpress, setShippingAirExpress] = useState('')
+  const [shippingSea, setShippingSea] = useState('')
   const [saving, setSaving] = useState(false)
 
   const addTier = () => {
     const lastMax = tiers.length > 0 ? (tiers[tiers.length - 1].max_qty || 0) + 1 : 1
-    setTiers([...tiers, { min_qty: lastMax, max_qty: null, price_per_unit: '' }])
+    setTiers([...tiers, { min_qty: lastMax, max_qty: null, price_per_unit: '', cost_per_unit: '' }])
   }
 
   const updateTier = (i, field, val) => {
     const next = [...tiers]
-    next[i] = { ...next[i], [field]: field === 'price_per_unit' ? val : (val === '' ? null : parseInt(val)) }
+    next[i] = { ...next[i], [field]: (field === 'price_per_unit' || field === 'cost_per_unit') ? val : (val === '' ? null : parseInt(val)) }
     setTiers(next)
   }
 
@@ -440,7 +444,12 @@ function AddProductModal({ onClose, onSave }) {
     if (!name.trim()) return
     setSaving(true)
     const { data: product, error } = await supabase.from('products')
-      .insert({ name, description, category, cover_image: coverImage })
+      .insert({
+        name, description, category, cover_image: coverImage,
+        shipping_air: shippingAir ? parseFloat(shippingAir) : null,
+        shipping_air_express: shippingAirExpress ? parseFloat(shippingAirExpress) : null,
+        shipping_sea: shippingSea ? parseFloat(shippingSea) : null
+      })
       .select().single()
 
     if (error) { console.error(error); setSaving(false); return }
@@ -458,7 +467,8 @@ function AddProductModal({ onClose, onSave }) {
       await supabase.from('pricing_tiers').insert(
         validTiers.map(t => ({
           product_id: product.id, min_qty: t.min_qty,
-          max_qty: t.max_qty, price_per_unit: parseFloat(t.price_per_unit)
+          max_qty: t.max_qty, price_per_unit: parseFloat(t.price_per_unit),
+          cost_per_unit: t.cost_per_unit ? parseFloat(t.cost_per_unit) : null
         }))
       )
     }
@@ -545,36 +555,85 @@ function AddProductModal({ onClose, onSave }) {
             </button>
           </div>
 
-          {tiers.map((tier, i) => (
-            <div key={i} style={{
-              display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8,
-              padding: 12, background: '#FAFAFA', borderRadius: 8
-            }}>
-              <div style={{ flex: 1 }}>
-                <label style={{ fontSize: 11, color: '#555', fontWeight: 600 }}>Min Qty</label>
-                <input style={{ ...s.input, padding: '8px 10px' }} type="number"
-                  value={tier.min_qty} onChange={e => updateTier(i, 'min_qty', e.target.value)} />
+          {tiers.map((tier, i) => {
+            const margin = (tier.price_per_unit && tier.cost_per_unit)
+              ? ((parseFloat(tier.price_per_unit) - parseFloat(tier.cost_per_unit)) / parseFloat(tier.price_per_unit) * 100).toFixed(0)
+              : null
+            return (
+              <div key={i} style={{
+                display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8,
+                padding: 12, background: '#FAFAFA', borderRadius: 8
+              }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 11, color: '#555', fontWeight: 600 }}>Min Qty</label>
+                  <input style={{ ...s.input, padding: '8px 10px' }} type="number"
+                    value={tier.min_qty} onChange={e => updateTier(i, 'min_qty', e.target.value)} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 11, color: '#555', fontWeight: 600 }}>Max Qty</label>
+                  <input style={{ ...s.input, padding: '8px 10px' }} type="number"
+                    value={tier.max_qty || ''} onChange={e => updateTier(i, 'max_qty', e.target.value)}
+                    placeholder="No limit" />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 11, color: '#555', fontWeight: 600 }}>Your Cost / Unit</label>
+                  <input style={{ ...s.input, padding: '8px 10px' }} type="number" step="0.01"
+                    value={tier.cost_per_unit} onChange={e => updateTier(i, 'cost_per_unit', e.target.value)}
+                    placeholder="$0.00" />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 11, color: '#555', fontWeight: 600 }}>Sell Price / Unit</label>
+                  <input style={{ ...s.input, padding: '8px 10px' }} type="number" step="0.01"
+                    value={tier.price_per_unit} onChange={e => updateTier(i, 'price_per_unit', e.target.value)}
+                    placeholder="$0.00" />
+                </div>
+                <div style={{ width: 60, textAlign: 'center' }}>
+                  <label style={{ fontSize: 11, color: '#555', fontWeight: 600 }}>Margin</label>
+                  <p style={{
+                    fontSize: 14, fontWeight: 700, marginTop: 8,
+                    color: margin > 0 ? '#16A34A' : margin < 0 ? '#DC2626' : '#A3A3A3'
+                  }}>{margin != null ? `${margin}%` : '—'}</p>
+                </div>
+                {tiers.length > 1 && (
+                  <button onClick={() => removeTier(i)} style={{
+                    background: 'none', border: 'none', cursor: 'pointer', color: '#DC2626',
+                    marginTop: 16
+                  }}><Trash2 size={16} /></button>
+                )}
               </div>
-              <div style={{ flex: 1 }}>
-                <label style={{ fontSize: 11, color: '#555', fontWeight: 600 }}>Max Qty</label>
-                <input style={{ ...s.input, padding: '8px 10px' }} type="number"
-                  value={tier.max_qty || ''} onChange={e => updateTier(i, 'max_qty', e.target.value)}
-                  placeholder="No limit" />
+            )
+          })}
+        </div>
+
+        {/* Shipping Costs */}
+        <div style={{ marginTop: 24 }}>
+          <label style={{ ...s.label, marginBottom: 12 }}>Shipping Costs (per unit)</label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+            <div style={{ padding: 16, background: '#FAFAFA', borderRadius: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                <Ship size={14} style={{ color: '#555' }} />
+                <label style={{ fontSize: 12, fontWeight: 600, color: '#555' }}>Sea</label>
               </div>
-              <div style={{ flex: 1 }}>
-                <label style={{ fontSize: 11, color: '#555', fontWeight: 600 }}>Price / Unit</label>
-                <input style={{ ...s.input, padding: '8px 10px' }} type="number" step="0.01"
-                  value={tier.price_per_unit} onChange={e => updateTier(i, 'price_per_unit', e.target.value)}
-                  placeholder="$0.00" />
-              </div>
-              {tiers.length > 1 && (
-                <button onClick={() => removeTier(i)} style={{
-                  background: 'none', border: 'none', cursor: 'pointer', color: '#DC2626',
-                  marginTop: 16
-                }}><Trash2 size={16} /></button>
-              )}
+              <input style={{ ...s.input, padding: '8px 10px' }} type="number" step="0.01"
+                value={shippingSea} onChange={e => setShippingSea(e.target.value)} placeholder="$0.00" />
             </div>
-          ))}
+            <div style={{ padding: 16, background: '#FAFAFA', borderRadius: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                <Plane size={14} style={{ color: '#555' }} />
+                <label style={{ fontSize: 12, fontWeight: 600, color: '#555' }}>Air</label>
+              </div>
+              <input style={{ ...s.input, padding: '8px 10px' }} type="number" step="0.01"
+                value={shippingAir} onChange={e => setShippingAir(e.target.value)} placeholder="$0.00" />
+            </div>
+            <div style={{ padding: 16, background: '#FAFAFA', borderRadius: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                <Zap size={14} style={{ color: '#555' }} />
+                <label style={{ fontSize: 12, fontWeight: 600, color: '#555' }}>Air Express</label>
+              </div>
+              <input style={{ ...s.input, padding: '8px 10px' }} type="number" step="0.01"
+                value={shippingAirExpress} onChange={e => setShippingAirExpress(e.target.value)} placeholder="$0.00" />
+            </div>
+          </div>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 24 }}>
@@ -605,7 +664,7 @@ function AdminProductEdit() {
     const { data: t } = await supabase.from('pricing_tiers').select('*').eq('product_id', id).order('min_qty')
     setProduct(p)
     setImages(imgs || [])
-    setTiers(t && t.length > 0 ? t : [{ min_qty: 1, max_qty: 49, price_per_unit: '' }])
+    setTiers(t && t.length > 0 ? t : [{ min_qty: 1, max_qty: 49, price_per_unit: '', cost_per_unit: '' }])
   }
 
   useEffect(() => { load() }, [id])
@@ -614,7 +673,10 @@ function AdminProductEdit() {
     setSaving(true)
     await supabase.from('products').update({
       name: product.name, description: product.description,
-      category: product.category, cover_image: product.cover_image
+      category: product.category, cover_image: product.cover_image,
+      shipping_air: product.shipping_air || null,
+      shipping_air_express: product.shipping_air_express || null,
+      shipping_sea: product.shipping_sea || null
     }).eq('id', id)
 
     // Replace images
@@ -634,7 +696,8 @@ function AdminProductEdit() {
       await supabase.from('pricing_tiers').insert(
         validTiers.map(t => ({
           product_id: id, min_qty: t.min_qty,
-          max_qty: t.max_qty || null, price_per_unit: parseFloat(t.price_per_unit)
+          max_qty: t.max_qty || null, price_per_unit: parseFloat(t.price_per_unit),
+          cost_per_unit: t.cost_per_unit ? parseFloat(t.cost_per_unit) : null
         }))
       )
     }
@@ -646,7 +709,7 @@ function AdminProductEdit() {
 
   const addTier = () => {
     const lastMax = tiers.length > 0 ? (tiers[tiers.length - 1].max_qty || 0) + 1 : 1
-    setTiers([...tiers, { min_qty: lastMax, max_qty: null, price_per_unit: '' }])
+    setTiers([...tiers, { min_qty: lastMax, max_qty: null, price_per_unit: '', cost_per_unit: '' }])
   }
 
   if (!product) return <p style={{ color: '#555' }}>Loading...</p>
@@ -734,39 +797,92 @@ function AdminProductEdit() {
           </button>
         </div>
 
-        {tiers.map((tier, i) => (
-          <div key={i} style={{
-            display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8,
-            padding: 12, background: '#FAFAFA', borderRadius: 8
-          }}>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: 11, color: '#555', fontWeight: 600 }}>Min Qty</label>
-              <input style={{ ...s.input, padding: '8px 10px' }} type="number"
-                value={tier.min_qty} onChange={e => {
-                  const next = [...tiers]; next[i] = { ...next[i], min_qty: parseInt(e.target.value) || 0 }; setTiers(next)
-                }} />
+        {tiers.map((tier, i) => {
+          const margin = (tier.price_per_unit && tier.cost_per_unit)
+            ? ((parseFloat(tier.price_per_unit) - parseFloat(tier.cost_per_unit)) / parseFloat(tier.price_per_unit) * 100).toFixed(0)
+            : null
+          return (
+            <div key={i} style={{
+              display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8,
+              padding: 12, background: '#FAFAFA', borderRadius: 8
+            }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 11, color: '#555', fontWeight: 600 }}>Min Qty</label>
+                <input style={{ ...s.input, padding: '8px 10px' }} type="number"
+                  value={tier.min_qty} onChange={e => {
+                    const next = [...tiers]; next[i] = { ...next[i], min_qty: parseInt(e.target.value) || 0 }; setTiers(next)
+                  }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 11, color: '#555', fontWeight: 600 }}>Max Qty</label>
+                <input style={{ ...s.input, padding: '8px 10px' }} type="number"
+                  value={tier.max_qty || ''} onChange={e => {
+                    const next = [...tiers]; next[i] = { ...next[i], max_qty: e.target.value === '' ? null : parseInt(e.target.value) }; setTiers(next)
+                  }} placeholder="No limit" />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 11, color: '#555', fontWeight: 600 }}>Your Cost / Unit</label>
+                <input style={{ ...s.input, padding: '8px 10px' }} type="number" step="0.01"
+                  value={tier.cost_per_unit || ''} onChange={e => {
+                    const next = [...tiers]; next[i] = { ...next[i], cost_per_unit: e.target.value }; setTiers(next)
+                  }} placeholder="$0.00" />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 11, color: '#555', fontWeight: 600 }}>Sell Price / Unit</label>
+                <input style={{ ...s.input, padding: '8px 10px' }} type="number" step="0.01"
+                  value={tier.price_per_unit} onChange={e => {
+                    const next = [...tiers]; next[i] = { ...next[i], price_per_unit: e.target.value }; setTiers(next)
+                  }} placeholder="$0.00" />
+              </div>
+              <div style={{ width: 60, textAlign: 'center' }}>
+                <label style={{ fontSize: 11, color: '#555', fontWeight: 600 }}>Margin</label>
+                <p style={{
+                  fontSize: 14, fontWeight: 700, marginTop: 8,
+                  color: margin > 0 ? '#16A34A' : margin < 0 ? '#DC2626' : '#A3A3A3'
+                }}>{margin != null ? `${margin}%` : '—'}</p>
+              </div>
+              {tiers.length > 1 && (
+                <button onClick={() => setTiers(tiers.filter((_, idx) => idx !== i))} style={{
+                  background: 'none', border: 'none', cursor: 'pointer', color: '#DC2626', marginTop: 16
+                }}><Trash2 size={16} /></button>
+              )}
             </div>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: 11, color: '#555', fontWeight: 600 }}>Max Qty</label>
-              <input style={{ ...s.input, padding: '8px 10px' }} type="number"
-                value={tier.max_qty || ''} onChange={e => {
-                  const next = [...tiers]; next[i] = { ...next[i], max_qty: e.target.value === '' ? null : parseInt(e.target.value) }; setTiers(next)
-                }} placeholder="No limit" />
+          )
+        })}
+      </div>
+
+      {/* Shipping Costs */}
+      <div style={{ ...s.card, padding: 24, marginTop: 24 }}>
+        <label style={{ ...s.label, marginBottom: 16, fontSize: 16 }}>Shipping Costs (per unit)</label>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+          <div style={{ padding: 16, background: '#FAFAFA', borderRadius: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+              <Ship size={16} style={{ color: '#555' }} />
+              <label style={{ fontSize: 13, fontWeight: 600, color: '#000' }}>Sea</label>
             </div>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: 11, color: '#555', fontWeight: 600 }}>Price / Unit</label>
-              <input style={{ ...s.input, padding: '8px 10px' }} type="number" step="0.01"
-                value={tier.price_per_unit} onChange={e => {
-                  const next = [...tiers]; next[i] = { ...next[i], price_per_unit: e.target.value }; setTiers(next)
-                }} placeholder="$0.00" />
-            </div>
-            {tiers.length > 1 && (
-              <button onClick={() => setTiers(tiers.filter((_, idx) => idx !== i))} style={{
-                background: 'none', border: 'none', cursor: 'pointer', color: '#DC2626', marginTop: 16
-              }}><Trash2 size={16} /></button>
-            )}
+            <input style={{ ...s.input, padding: '8px 10px' }} type="number" step="0.01"
+              value={product.shipping_sea || ''} onChange={e => setProduct({ ...product, shipping_sea: e.target.value })}
+              placeholder="$0.00" />
           </div>
-        ))}
+          <div style={{ padding: 16, background: '#FAFAFA', borderRadius: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+              <Plane size={16} style={{ color: '#555' }} />
+              <label style={{ fontSize: 13, fontWeight: 600, color: '#000' }}>Air</label>
+            </div>
+            <input style={{ ...s.input, padding: '8px 10px' }} type="number" step="0.01"
+              value={product.shipping_air || ''} onChange={e => setProduct({ ...product, shipping_air: e.target.value })}
+              placeholder="$0.00" />
+          </div>
+          <div style={{ padding: 16, background: '#FAFAFA', borderRadius: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+              <Zap size={16} style={{ color: '#555' }} />
+              <label style={{ fontSize: 13, fontWeight: 600, color: '#000' }}>Air Express</label>
+            </div>
+            <input style={{ ...s.input, padding: '8px 10px' }} type="number" step="0.01"
+              value={product.shipping_air_express || ''} onChange={e => setProduct({ ...product, shipping_air_express: e.target.value })}
+              placeholder="$0.00" />
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -1048,15 +1164,23 @@ function Storefront() {
     return matchSearch && matchCat
   })
 
-  const addToCart = (product, quantity, notes) => {
+  const addToCart = (product, quantity, notes, shippingMethod) => {
     const tiers = product.pricing_tiers?.sort((a, b) => a.min_qty - b.min_qty) || []
     const tier = tiers.find(t => quantity >= t.min_qty && (!t.max_qty || quantity <= t.max_qty))
     const price = tier ? tier.price_per_unit : (tiers.length > 0 ? tiers[tiers.length - 1].price_per_unit : null)
+    const shippingCost = shippingMethod === 'sea' ? product.shipping_sea
+      : shippingMethod === 'air' ? product.shipping_air
+      : shippingMethod === 'air_express' ? product.shipping_air_express : 0
+    const shippingLabel = shippingMethod === 'sea' ? 'Sea'
+      : shippingMethod === 'air' ? 'Air'
+      : shippingMethod === 'air_express' ? 'Air Express' : null
 
     setCart([...cart, {
       product_id: product.id, product_name: product.name,
       product_image: product.cover_image, quantity,
-      estimated_price: price, notes
+      estimated_price: price, notes,
+      shipping_method: shippingLabel,
+      shipping_cost: parseFloat(shippingCost) || 0
     }])
     setSelected(null)
     setShowCart(true)
@@ -1073,7 +1197,7 @@ function Storefront() {
     setCart(cart.map((c, i) => i === idx ? { ...c, quantity: qty, estimated_price: price } : c))
   }
 
-  const cartTotal = cart.reduce((sum, i) => sum + (i.estimated_price * i.quantity), 0)
+  const cartTotal = cart.reduce((sum, i) => sum + ((parseFloat(i.estimated_price || 0) + parseFloat(i.shipping_cost || 0)) * i.quantity), 0)
 
   return (
     <div style={s.page}>
@@ -1239,11 +1363,16 @@ function Storefront() {
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <p style={{ fontSize: 14, fontWeight: 700 }}>
-                        {formatMoney(item.estimated_price * item.quantity)}
+                        {formatMoney((parseFloat(item.estimated_price || 0) + parseFloat(item.shipping_cost || 0)) * item.quantity)}
                       </p>
                       <p style={{ fontSize: 11, color: '#555' }}>
                         {formatMoney(item.estimated_price)} ea
                       </p>
+                      {item.shipping_method && (
+                        <p style={{ fontSize: 10, color: '#A3A3A3' }}>
+                          + {formatMoney(item.shipping_cost)} {item.shipping_method}
+                        </p>
+                      )}
                     </div>
                     <button onClick={() => removeFromCart(idx)}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#DC2626' }}>
@@ -1292,8 +1421,14 @@ function ProductDetailModal({ product, onClose, onAdd }) {
   const [qty, setQty] = useState(product.pricing_tiers?.[0]?.min_qty || 1)
   const [notes, setNotes] = useState('')
   const [activeImg, setActiveImg] = useState(product.cover_image)
+  const [shippingMethod, setShippingMethod] = useState('')
 
   const tiers = (product.pricing_tiers || []).sort((a, b) => a.min_qty - b.min_qty)
+  const shippingOptions = [
+    product.shipping_sea != null && { key: 'sea', label: 'Sea', icon: Ship, cost: parseFloat(product.shipping_sea), time: '25–40 days' },
+    product.shipping_air != null && { key: 'air', label: 'Air', icon: Plane, cost: parseFloat(product.shipping_air), time: '7–14 days' },
+    product.shipping_air_express != null && { key: 'air_express', label: 'Air Express', icon: Zap, cost: parseFloat(product.shipping_air_express), time: '3–5 days' },
+  ].filter(Boolean)
   const allImages = [
     product.cover_image,
     ...(product.product_images || []).map(i => i.image_url)
@@ -1392,19 +1527,63 @@ function ProductDetailModal({ product, onClose, onAdd }) {
             </div>
           </div>
 
-          {/* Live Price */}
-          {unitPrice > 0 && (
-            <div style={{
-              background: '#F5F5F5', borderRadius: 8, padding: 16, marginBottom: 20,
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-            }}>
-              <div>
-                <p style={{ fontSize: 13, color: '#555' }}>{formatMoney(unitPrice)} x {qty} units</p>
-                <p style={{ fontSize: 11, color: '#A3A3A3' }}>Estimated — final pricing after review</p>
+          {/* Shipping Method */}
+          {shippingOptions.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <label style={s.label}>Shipping Method</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {shippingOptions.map(opt => {
+                  const Icon = opt.icon
+                  const isSelected = shippingMethod === opt.key
+                  return (
+                    <button key={opt.key} onClick={() => setShippingMethod(opt.key)} style={{
+                      display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
+                      border: isSelected ? '2px solid #000' : '1px solid #E5E5E5',
+                      borderRadius: 8, background: isSelected ? '#FAFAFA' : '#fff',
+                      cursor: 'pointer', textAlign: 'left', width: '100%'
+                    }}>
+                      <Icon size={18} style={{ color: isSelected ? '#000' : '#A3A3A3' }} />
+                      <div style={{ flex: 1 }}>
+                        <p style={{ fontSize: 14, fontWeight: 600 }}>{opt.label}</p>
+                        <p style={{ fontSize: 12, color: '#555' }}>{opt.time}</p>
+                      </div>
+                      <span style={{ fontSize: 14, fontWeight: 700 }}>+{formatMoney(opt.cost)}/unit</span>
+                    </button>
+                  )
+                })}
               </div>
-              <p style={{ fontSize: 24, fontWeight: 800 }}>{formatMoney(unitPrice * qty)}</p>
             </div>
           )}
+
+          {/* Live Price */}
+          {unitPrice > 0 && (() => {
+            const selectedShipping = shippingOptions.find(o => o.key === shippingMethod)
+            const shippingCost = selectedShipping ? selectedShipping.cost : 0
+            const totalPerUnit = parseFloat(unitPrice) + shippingCost
+            return (
+              <div style={{
+                background: '#F5F5F5', borderRadius: 8, padding: 16, marginBottom: 20,
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ fontSize: 13, color: '#555' }}>Product: {formatMoney(unitPrice)} x {qty}</span>
+                  <span style={{ fontSize: 14, fontWeight: 600 }}>{formatMoney(unitPrice * qty)}</span>
+                </div>
+                {shippingCost > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <span style={{ fontSize: 13, color: '#555' }}>Shipping: {formatMoney(shippingCost)} x {qty}</span>
+                    <span style={{ fontSize: 14, fontWeight: 600 }}>{formatMoney(shippingCost * qty)}</span>
+                  </div>
+                )}
+                <div style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  borderTop: '1px solid #D4D4D4', paddingTop: 8, marginTop: 8
+                }}>
+                  <p style={{ fontSize: 11, color: '#A3A3A3' }}>Estimated — final pricing after review</p>
+                  <p style={{ fontSize: 24, fontWeight: 800 }}>{formatMoney(totalPerUnit * qty)}</p>
+                </div>
+              </div>
+            )
+          })()}
 
           {/* Notes */}
           <div style={{ marginBottom: 20 }}>
@@ -1415,7 +1594,7 @@ function ProductDetailModal({ product, onClose, onAdd }) {
           </div>
 
           <button style={{ ...s.btnPrimary, width: '100%', justifyContent: 'center', padding: '14px 20px', fontSize: 15 }}
-            onClick={() => onAdd(product, qty, notes)}>
+            onClick={() => onAdd(product, qty, notes, shippingMethod)}>
             <ShoppingBag size={18} /> Add to Quote
           </button>
         </div>
@@ -1453,7 +1632,7 @@ function CheckoutModal({ cart, total, onClose, onSuccess }) {
         quote_id: quote.id, product_id: item.product_id,
         product_name: item.product_name, product_image: item.product_image,
         quantity: item.quantity, estimated_price: item.estimated_price,
-        notes: item.notes
+        notes: [item.notes, item.shipping_method ? `Shipping: ${item.shipping_method} (+${formatMoney(item.shipping_cost)}/unit)` : null].filter(Boolean).join(' | ') || null
       }))
     )
 
@@ -1530,12 +1709,16 @@ function CheckoutModal({ cart, total, onClose, onSuccess }) {
             <div style={{ background: '#FAFAFA', borderRadius: 12, padding: 20 }}>
               <h4 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Order Summary</h4>
               {cart.map((item, i) => (
-                <div key={i} style={{
-                  display: 'flex', justifyContent: 'space-between', padding: '8px 0',
-                  borderBottom: '1px solid #E5E5E5', fontSize: 14
-                }}>
-                  <span>{item.product_name} x {item.quantity}</span>
-                  <span style={{ fontWeight: 600 }}>{formatMoney(item.estimated_price * item.quantity)}</span>
+                <div key={i} style={{ padding: '8px 0', borderBottom: '1px solid #E5E5E5', fontSize: 14 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>{item.product_name} x {item.quantity}</span>
+                    <span style={{ fontWeight: 600 }}>{formatMoney((parseFloat(item.estimated_price || 0) + parseFloat(item.shipping_cost || 0)) * item.quantity)}</span>
+                  </div>
+                  {item.shipping_method && (
+                    <p style={{ fontSize: 11, color: '#555', marginTop: 2 }}>
+                      Shipping: {item.shipping_method} (+{formatMoney(item.shipping_cost)}/unit)
+                    </p>
+                  )}
                 </div>
               ))}
               <div style={{
