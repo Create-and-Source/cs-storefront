@@ -104,7 +104,7 @@ const s = {
     border: '1px solid #E5E5E5', cursor: 'pointer', transition: 'all 0.2s'
   },
   productImage: {
-    width: '100%', height: 320, objectFit: 'cover', background: '#F5F5F5'
+    width: '100%', height: 320, objectFit: 'contain', background: '#F5F5F5', padding: 16
   },
   productInfo: { padding: '20px' },
 
@@ -1497,7 +1497,7 @@ function ProductDetailModal({ product, onClose, onAdd }) {
         <div style={{ width: '50%', background: '#F5F5F5' }}>
           {activeImg ? (
             <img src={activeImg} alt={product.name} style={{
-              width: '100%', height: 420, objectFit: 'cover'
+              width: '100%', height: 420, objectFit: 'contain', padding: 16, background: '#F5F5F5'
             }} />
           ) : (
             <div style={{
